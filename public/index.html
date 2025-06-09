@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PenaltyX2 - Disputa de Pênaltis Online</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>PenaltyX2</h1>
+
+        <!-- Tela inicial -->
+        <div id="start-screen" class="screen active">
+            <h2>Disputa de Pênaltis Online</h2>
+            <div class="form-group">
+                <input type="text" id="room-input" placeholder="Digite o código da sala">
+                <button id="join-btn">Entrar na Sala</button>
+            </div>
+            <p id="waiting-message" class="hidden">Aguardando outro jogador...</p>
+        </div>
+
+        <!-- Tela de jogo -->
+        <div id="game-screen" class="screen">
+            <div class="score-board">
+                <div class="score">
+                    <span id="player1-score">0</span>
+                    <span>:</span>
+                    <span id="player2-score">0</span>
+                </div>
+                <div class="round">Rodada: <span id="round-counter">1</span>/5</div>
+            </div>
+
+            <div id="turn-info">Aguardando...</div>
+
+            <div id="goal-container">
+                <div class="goal-area">
+                    <div class="goal-frame"></div>
+                    <div class="goal-net"></div>
+                    <div class="goal-spots">
+                        <div class="spot" data-position="top-left"></div>
+                        <div class="spot" data-position="top-right"></div>
+                        <div class="spot" data-position="center"></div>
+                        <div class="spot" data-position="bottom-left"></div>
+                        <div class="spot" data-position="bottom-right"></div>
+                    </div>
+                    <div id="ball" class="hidden"></div>
+                    <div id="goalkeeper" class="hidden"></div>
+                </div>
+            </div>
+
+            <div id="action-message">Clique no gol para escolher onde chutar</div>
+
+            <!-- Botão de confirmar escolha -->
+            <div id="ready-button-container" class="hidden">
+                <button id="ready-button" class="ready-btn">Pronto</button>
+                <p id="selection-message" class="selection-text"></p>
+            </div>
+        </div>
+
+        <!-- Tela de resultado -->
+        <div id="result-screen" class="screen">
+            <h2 id="result-title">Fim de jogo!</h2>
+            <div id="final-score">
+                <span id="final-player1-score">0</span>
+                <span>:</span>
+                <span id="final-player2-score">0</span>
+            </div>
+            <div id="result-message"></div>
+            <button id="play-again-btn">Jogar novamente</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>

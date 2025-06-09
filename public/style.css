@@ -1,0 +1,388 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f5f5f5;
+    color: #333;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.container {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    text-align: center;
+}
+
+h1 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    font-size: 2.5em;
+}
+
+h2 {
+    margin-bottom: 20px;
+    color: #3498db;
+}
+
+.screen {
+    display: none;
+    margin-top: 20px;
+}
+
+.screen.active {
+    display: block;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+input {
+    padding: 10px 15px;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    width: 200px;
+}
+
+button {
+    padding: 10px 20px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    margin: 10px;
+}
+
+button:hover {
+    background-color: #2980b9;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Score board */
+.score-board {
+    margin: 5px auto; /* Reduzido de 20px para 5px */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+.score {
+    font-size: 32px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.score span {
+    margin: 0 10px;
+}
+
+.round {
+    font-size: 18px;
+    color: #7f8c8d;
+}
+
+/* Goal area */
+#goal-container {
+    position: relative;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin: 10px 0; /* Reduzido de 30px para 10px */
+}
+
+.goal-area {
+    position: relative;
+    width: 400px;
+    height: 250px;
+    background-color: transparent;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+}
+
+/* Adicionando representação visual do gol */
+.goal-frame {
+    display: block;
+    position: absolute;
+    width: 90%;
+    height: 70%;
+    top: 5%;
+    left: 5%;
+    border: 8px solid white;
+    border-bottom: none;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    z-index: 2;
+    /* Garantindo visibilidade das traves */
+    background-color: transparent;
+    pointer-events: none; /* Permite clicar através das traves */
+}
+
+/* Rede do gol */
+.goal-net {
+    display: block;
+    position: absolute;
+    width: 90%;
+    height: 70%;
+    top: 5%;
+    left: 5%;
+    background-image: linear-gradient(#fff 1px, transparent 1px),
+                      linear-gradient(90deg, #fff 1px, transparent 1px);
+    background-size: 15px 15px;
+    opacity: 0.4;
+    z-index: 1;
+}
+
+.crossbar {
+    position: absolute;
+    top: 0;
+    left: 10px;
+    right: 10px;
+    height: 8px;
+    background-color: white;
+    border: 1px solid #999;
+    box-shadow: 0 0 5px rgba(0,0,0,0.3);
+}
+
+.post {
+    position: absolute;
+    top: 0;
+    width: 8px;
+    height: 100%;
+    background-color: white;
+    border: 1px solid #999;
+    box-shadow: 0 0 5px rgba(0,0,0,0.3);
+}
+
+.left-post {
+    left: 10px;
+}
+
+.right-post {
+    right: 10px;
+}
+
+/* Configuração dos spots de clique */
+.goal-spots {
+    position: absolute;
+    width: 90%;
+    height: 70%;
+    top: 5%; /* Alinhado exatamente com o topo do gol */
+    left: 5%; /* Alinhado exatamente com o lado esquerdo do gol */
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr 1fr;
+    grid-template-areas:
+        "top-left . top-right"
+        ". center ."
+        "bottom-left . bottom-right";
+    z-index: 3; /* Maior que o gol para permitir cliques */
+}
+
+.spot {
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background-color 0.3s;
+    /* Aumentando o tamanho mínimo dos spots para facilitar o clique */
+    min-width: 50px;
+    min-height: 50px;
+}
+
+.spot[data-position="top-left"] {
+    grid-area: top-left;
+}
+
+.spot[data-position="top-right"] {
+    grid-area: top-right;
+}
+
+.spot[data-position="center"] {
+    grid-area: center;
+}
+
+.spot[data-position="bottom-left"] {
+    grid-area: bottom-left;
+}
+
+.spot[data-position="bottom-right"] {
+    grid-area: bottom-right;
+}
+
+.spot:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+    /* Destaque visual um pouco mais evidente ao passar o mouse */
+    border: 2px solid rgba(255, 255, 255, 0.5);
+}
+
+/* Ball and goalkeeper */
+#ball {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    background-color: #fff;
+    border: 2px solid #000;
+    border-radius: 50%;
+    z-index: 4; /* Maior que o goleiro para ficar na frente quando defendido */
+    transition: all 0.5s ease-in-out;
+    transform: translate(-50%, -50%); /* Centraliza a bola no ponto exato */
+}
+
+#goalkeeper {
+    position: absolute;
+    width: 100px;
+    height: 100px;
+    background-image: url('./assets/goleiro.png');
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    z-index: 3;
+    transition: all 0.4s ease-in-out;
+    transform: translate(-50%, -50%); /* Centraliza o goleiro no ponto exato */
+}
+
+/* Turn info and action messages */
+#turn-info {
+    font-size: 20px;
+    font-weight: bold;
+    margin: 5px auto; /* Reduzido de 15px para 5px */
+    color: #2c3e50;
+    padding: 5px; /* Reduzido de 10px para 5px */
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 5px;
+    width: fit-content;
+    max-width: 80%;
+}
+
+#action-message {
+    font-size: 16px;
+    color: #7f8c8d;
+    margin: 5px auto; /* Reduzido de 15px para 5px */
+    padding: 5px; /* Reduzido de 10px para 5px */
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 5px;
+    width: fit-content;
+    max-width: 80%;
+}
+
+/* Result screen */
+#final-score {
+    font-size: 40px;
+    font-weight: bold;
+    margin: 20px 0;
+}
+
+#result-message {
+    font-size: 24px;
+    margin: 20px 0;
+    color: #3498db;
+}
+
+/* Game screen - tela mais compacta */
+#game-screen {
+    background-image: url('./assets/fundograma.webp');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    padding: 10px; /* Reduzido de 20px para 10px */
+    border-radius: 10px;
+    position: relative;
+    min-height: 450px; /* Reduzido para caber melhor na tela */
+    max-height: 95vh; /* Limita a altura máxima para não precisar scrollar */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* Camada semi-transparente para melhorar legibilidade */
+#game-screen::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.3);
+    z-index: 0;
+    border-radius: 10px;
+}
+
+/* Garantir que o conteúdo fique acima da camada escura */
+#game-screen > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* Score board sobre fundo de imagem */
+.score-board {
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 10px;
+    border-radius: 8px;
+    margin: 20px auto;
+    width: fit-content;
+}
+
+/* Botão de pronto */
+#ready-button-container {
+    margin: 10px auto; /* Reduzido de 20px para 10px */
+    text-align: center;
+}
+
+.ready-btn {
+    padding: 8px 25px; /* Reduzido de 12px 30px para 8px 25px */
+    background-color: #27ae60;
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #1e8449;
+    transition: all 0.2s ease;
+}
+
+.ready-btn:hover {
+    background-color: #2ecc71;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 0 #1e8449;
+}
+
+.ready-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 0 #1e8449;
+}
+
+.ready-btn.disabled {
+    background-color: #95a5a6;
+    box-shadow: 0 4px 0 #7f8c8d;
+    cursor: not-allowed;
+}
+
+.selection-text {
+    margin-top: 10px;
+    font-style: italic;
+    color: #fff;
+    text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .goal-area {
+        width: 100%;
+        height: 200px;
+    }
+}
