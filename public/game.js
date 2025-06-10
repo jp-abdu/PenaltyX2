@@ -30,6 +30,7 @@ let playerRole = null; // 'player1' ou 'player2'
 let roomId = null;
 let selectedPosition = null;
 let isReady = false;
+let currentAttacker = 'player1'; // novo: controla quem é o atacante da rodada
 
 // Mapeamento das posições do gol com coordenadas para animações
 const goalPositions = {
@@ -81,11 +82,8 @@ socket.on('gameStart', (data) => {
     waitingMessage.classList.add('hidden');
     showScreen('game');
     roundCounter.textContent = data.round;
-
-    // Reseta estado para nova rodada
+    currentAttacker = 'player1'; // começa sempre com player1
     resetRound();
-
-    // Atualiza instruções para ambos os jogadores
     updateInstructions();
 });
 
@@ -97,6 +95,8 @@ socket.on('opponentReady', (data) => {
 
 // Evento ao receber o resultado da rodada
 socket.on('roundResult', (data) => {
+    currentAttacker = data.attacker; // atualiza quem foi o atacante da rodada
+
     // Posicões para animação
     const kickPos = goalPositions[data.kick];
     const defensePos = goalPositions[data.defense];
@@ -130,13 +130,9 @@ socket.on('roundResult', (data) => {
 
 // Evento para próxima rodada
 socket.on('nextRound', (data) => {
-    // Atualiza o contador de rodadas
     roundCounter.textContent = data.round;
-
-    // Reseta estado para nova rodada
+    currentAttacker = data.attacker; // atualiza atacante da rodada
     resetRound();
-
-    // Atualiza instruções para ambos os jogadores
     updateInstructions();
 });
 
@@ -186,12 +182,14 @@ function resetRound() {
 
 // Atualiza as instruções baseado no papel do jogador
 function updateInstructions() {
-    if (playerRole === 'player1') {
+    if (playerRole === currentAttacker) {
         turnInfo.textContent = 'Sua vez de chutar!';
         actionMessage.textContent = 'Escolha onde chutar e clique em Pronto para confirmar.';
+        setGoalSpotsEnabled(true);
     } else {
         turnInfo.textContent = 'Sua vez de defender!';
         actionMessage.textContent = 'Escolha onde defender e clique em Pronto para confirmar.';
+        setGoalSpotsEnabled(true);
     }
 }
 
@@ -225,15 +223,11 @@ function setGoalSpotsEnabled(enabled) {
 function handleSpotClick(event) {
     const position = event.target.dataset.position;
     selectedPosition = position;
-
-    // Mostra a posição selecionada
-    if (playerRole === 'player1') {
+    if (playerRole === currentAttacker) {
         selectionMessage.textContent = `Chute selecionado: ${getPositionName(position)}`;
     } else {
         selectionMessage.textContent = `Defesa selecionada: ${getPositionName(position)}`;
     }
-
-    // Mostrar o botão Pronto
     readyButtonContainer.classList.remove('hidden');
 }
 
@@ -252,15 +246,11 @@ function getPositionName(position) {
 // Handler para o botão Pronto
 readyButton.addEventListener('click', () => {
     if (!selectedPosition) return;
-
     isReady = true;
     readyButton.disabled = true;
     readyButton.classList.add('disabled');
-
-    // Notifica o servidor que o jogador está pronto
     socket.emit('playerReady', { position: selectedPosition });
-
-    if (playerRole === 'player1') {
+    if (playerRole === currentAttacker) {
         actionMessage.textContent = 'Você confirmou seu chute! Aguardando o goleiro...';
     } else {
         actionMessage.textContent = 'Você confirmou sua defesa! Aguardando o resultado...';

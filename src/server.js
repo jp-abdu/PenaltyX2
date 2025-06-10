@@ -30,11 +30,11 @@ io.on('connection', (socket) => {
         },
         round: 1, // Corrigido de 0 para 1 para corresponder ao evento gameStart
         maxRounds: 5,
-        // Campos para a nova mecânica
         player1Position: null,
         player2Position: null,
         player1Ready: false,
-        player2Ready: false
+        player2Ready: false,
+        currentAttacker: 'player1' // Começa com player1 como atacante
       };
     }
 
@@ -112,30 +112,32 @@ io.on('connection', (socket) => {
 
   // Função para processar o resultado da rodada
   function processRound(room) {
-    // Verifica se o gol foi defendido (posições iguais = defesa)
-    const isGoal = room.player1Position !== room.player2Position;
+    // Determina quem é o atacante e o goleiro nesta rodada
+    const attacker = room.currentAttacker;
+    const defender = attacker === 'player1' ? 'player2' : 'player1';
+    const attackerPosition = attacker === 'player1' ? room.player1Position : room.player2Position;
+    const defenderPosition = defender === 'player1' ? room.player1Position : room.player2Position;
 
-    // Se for gol, aumenta o placar do jogador 1 (atacante)
+    // Verifica se o gol foi defendido (posições iguais = defesa)
+    const isGoal = attackerPosition !== defenderPosition;
+
+    // Se for gol, aumenta o placar do atacante
     if (isGoal) {
-      room.scores.player1++;
+      room.scores[attacker]++;
     }
 
     console.log(`Rodada ${room.round} processada - Placar: ${room.scores.player1} x ${room.scores.player2}`);
 
-    // Envia o resultado para ambos os jogadores
+    // Envia o resultado para ambos os jogadores, informando quem foi atacante
     io.to(room.id).emit('roundResult', {
-      kick: room.player1Position,
-      defense: room.player2Position,
+      attacker,
+      kick: attackerPosition,
+      defense: defenderPosition,
       isGoal,
       scores: room.scores
     });
 
-    // Incrementa a rodada
-    room.round++;
-
-    console.log(`Próxima rodada: ${room.round}, máximo: ${room.maxRounds}`);
-
-    // Verifica se o jogo acabou - após 5 rodadas completas
+    // Incrementa a rodada SÓ DEPOIS de processar o fim do jogo
     if (room.round >= room.maxRounds) {
       // Determina o vencedor
       let winner = null;
@@ -147,29 +149,29 @@ io.on('connection', (socket) => {
 
       console.log(`Jogo finalizado - Enviando gameOver - Resultado final: ${room.scores.player1} x ${room.scores.player2}, vencedor: ${winner || 'empate'}`);
 
-      // Envia o resultado final
       io.to(room.id).emit('gameOver', {
         winner,
         scores: room.scores
       });
 
-      // Limpa a sala após alguns segundos
       setTimeout(() => {
         delete rooms[room.id];
       }, 5000);
     } else {
-      // Prepara a próxima rodada
+      // Alterna o atacante para a próxima rodada
+      room.currentAttacker = room.currentAttacker === 'player1' ? 'player2' : 'player1';
       room.player1Position = null;
       room.player2Position = null;
       room.player1Ready = false;
       room.player2Ready = false;
 
-      // Notifica para iniciar nova rodada
       setTimeout(() => {
         io.to(room.id).emit('nextRound', {
-          round: room.round,
-          scores: room.scores
+          round: room.round + 1,
+          scores: room.scores,
+          attacker: room.currentAttacker
         });
+        room.round++;
       }, 3000);
     }
   }
