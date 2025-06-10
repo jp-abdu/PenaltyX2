@@ -15,11 +15,12 @@ const turnInfo = document.getElementById('turn-info');
 const actionMessage = document.getElementById('action-message');
 const goalSpots = document.querySelectorAll('.spot');
 const ball = document.getElementById('ball');
+const penaltyBall = document.getElementById('penalty-ball');
 const goalkeeper = document.getElementById('goalkeeper');
 const player1Score = document.getElementById('player1-score');
 const player2Score = document.getElementById('player2-score');
 const roundCounter = document.getElementById('round-counter');
-const turnPlayer = document.getElementById('turn-player'); // Novo: indicador de turno
+const turnPlayer = document.getElementById('turn-player');
 const playAgainBtn = document.getElementById('play-again-btn');
 const returnHomeBtn = document.getElementById('return-home-btn');
 const finalPlayer1Score = document.getElementById('final-player1-score');
@@ -37,7 +38,8 @@ let roomId = null;
 let selectedPosition = null;
 let isReady = false;
 let currentAttacker = 'player1'; // controla quem é o atacante do turno atual
-let currentTurn = 1; // Novo: controla qual turno está ativo (1 ou 2)
+let currentTurn = 1; // controla qual turno está ativo (1 ou 2)
+let isSuddenDeath = false; // indica se estamos em modo de morte súbita
 
 // Mapeamento das posições do gol com coordenadas para animações
 const goalPositions = {
@@ -103,6 +105,7 @@ socket.on('gameStart', (data) => {
     roundCounter.textContent = data.round;
     currentAttacker = data.attacker || 'player1'; // começa sempre com player1
     currentTurn = data.turn || 1;
+    isSuddenDeath = false;
     updateTurnDisplay();
     resetRound();
     updateInstructions();
@@ -123,6 +126,7 @@ socket.on('opponentReady', (data) => {
 // Evento ao receber o resultado da rodada
 socket.on('roundResult', (data) => {
     currentAttacker = data.attacker; // atualiza quem foi o atacante da rodada
+    isSuddenDeath = data.suddenDeath || false;
 
     // Posicões para animação
     const kickPos = goalPositions[data.kick];
@@ -132,6 +136,9 @@ socket.on('roundResult', (data) => {
     ball.style.left = kickPos.ballX;
     ball.style.top = kickPos.ballY;
     ball.classList.remove('hidden');
+
+    // Oculta a bola de pênalti quando a bola de chute é mostrada
+    penaltyBall.classList.add('hidden');
 
     // Posiciona e mostra o goleiro
     goalkeeper.style.left = defensePos.keeperX;
@@ -155,10 +162,18 @@ socket.on('roundResult', (data) => {
     readyButton.classList.add('disabled');
 });
 
+// Evento para iniciar a morte súbita
+socket.on('suddenDeathStart', (data) => {
+    isSuddenDeath = true;
+    roundCounter.textContent = '1';
+    actionMessage.textContent = data.message || 'Empate após as 5 cobranças! Iniciando morte súbita!';
+});
+
 // Evento para o próximo turno dentro da mesma rodada
 socket.on('nextTurn', (data) => {
     currentTurn = data.turn;
     currentAttacker = data.attacker;
+    isSuddenDeath = data.suddenDeath || false;
     updateTurnDisplay();
     resetRound();
     updateInstructions();
@@ -173,17 +188,30 @@ socket.on('nextRound', (data) => {
     roundCounter.textContent = data.round;
     currentAttacker = data.attacker; // Normalmente volta para player1
     currentTurn = data.turn || 1;    // Normalmente volta para turno 1
+    isSuddenDeath = data.suddenDeath || false;
+
+    // Se estamos em morte súbita, atualiza o visual para mostrar isso
+    if (isSuddenDeath) {
+        document.querySelector('.round').innerHTML = 'Morte súbita: <span id="round-counter">' + data.round + '</span>';
+    } else {
+        document.querySelector('.round').innerHTML = 'Rodada: <span id="round-counter">' + data.round + '</span>/5';
+    }
+
     updateTurnDisplay();
     resetRound();
     updateInstructions();
 
     // Mensagem informativa sobre a nova rodada
-    actionMessage.textContent = `Nova rodada! Vez do Jogador ${currentAttacker === 'player1' ? '1' : '2'} chutar!`;
+    let message = `Nova rodada! Vez do Jogador ${currentAttacker === 'player1' ? '1' : '2'} chutar!`;
+    if (isSuddenDeath) {
+        message = `Morte súbita - Rodada ${data.round}! Vez do Jogador ${currentAttacker === 'player1' ? '1' : '2'} chutar!`;
+    }
+    actionMessage.textContent = message;
 });
 
 // Evento ao fim do jogo
 socket.on('gameOver', (data) => {
-    console.log('Evento gameOver recebido:', data); // Log para depuração
+    console.log('Evento gameOver recebido:', data);
 
     // Atualiza o placar final imediatamente
     finalPlayer1Score.textContent = data.scores.player1;
@@ -193,7 +221,15 @@ socket.on('gameOver', (data) => {
     if (data.winner) {
         const isWinner = playerRole === data.winner;
         resultTitle.textContent = isWinner ? 'Você Venceu!' : 'Você Perdeu!';
-        resultMessage.textContent = `Jogador ${data.winner === 'player1' ? '1' : '2'} vence a disputa de pênaltis!`;
+
+        // Mensagem personalizada ou padrão
+        if (data.message) {
+            resultMessage.textContent = data.message;
+        } else if (data.suddenDeath) {
+            resultMessage.textContent = `Jogador ${data.winner === 'player1' ? '1' : '2'} vence na morte súbita!`;
+        } else {
+            resultMessage.textContent = `Jogador ${data.winner === 'player1' ? '1' : '2'} vence a disputa de pênaltis!`;
+        }
 
         // Adiciona a classe apropriada para a cor do resultado
         resultContainer.classList.remove('victory', 'defeat');
@@ -220,6 +256,9 @@ function resetRound() {
     ball.classList.add('hidden');
     goalkeeper.classList.add('hidden');
 
+    // Mostra a bola de pênalti quando a bola de chute é ocultada
+    penaltyBall.classList.remove('hidden');
+
     // Reseta variáveis de estado
     selectedPosition = null;
     isReady = false;
@@ -239,12 +278,14 @@ function updateInstructions() {
     const attackerNumber = currentAttacker === 'player1' ? '1' : '2';
     const defenderNumber = currentAttacker === 'player1' ? '2' : '1';
 
+    let modoText = isSuddenDeath ? " (Morte súbita)" : "";
+
     if (playerRole === currentAttacker) {
-        turnInfo.textContent = `Você é o Batedor!`;
+        turnInfo.textContent = `Você é o Batedor${modoText}!`;
         actionMessage.textContent = 'Escolha onde chutar e clique em Pronto para confirmar.';
         setGoalSpotsEnabled(true);
     } else {
-        turnInfo.textContent = `Você é o goleiro!`;
+        turnInfo.textContent = `Você é o goleiro${modoText}!`;
         actionMessage.textContent = 'Escolha onde defender e clique em Pronto para confirmar.';
         setGoalSpotsEnabled(true);
     }
@@ -316,10 +357,49 @@ readyButton.addEventListener('click', () => {
 
 // Botão para jogar novamente (volta para tela de sala)
 playAgainBtn.addEventListener('click', () => {
+    // Reinicia todas as variáveis de estado do jogo para um novo começo
+    resetGameState();
+
+    // Volta para a tela da sala
     showScreen('start');
     waitingMessage.classList.add('hidden');
     roomInput.value = '';
 });
+
+// Função para reiniciar completamente o estado do jogo
+function resetGameState() {
+    // Resetar placar
+    player1Score.textContent = '0';
+    player2Score.textContent = '0';
+    finalPlayer1Score.textContent = '0';
+    finalPlayer2Score.textContent = '0';
+
+    // Resetar round e turno
+    roundCounter.textContent = '1';
+    document.querySelector('.round').innerHTML = 'Rodada: <span id="round-counter">1</span>/5';
+
+    // Limpar seleções e estados
+    selectedPosition = null;
+    isReady = false;
+    isSuddenDeath = false;
+    currentAttacker = 'player1';
+    currentTurn = 1;
+
+    // Reiniciar visuais
+    ball.classList.add('hidden');
+    goalkeeper.classList.add('hidden');
+    penaltyBall.classList.remove('hidden');
+    readyButtonContainer.classList.add('hidden');
+
+    // Mensagens padrão
+    turnInfo.textContent = 'Aguardando...';
+    actionMessage.textContent = 'Clique no gol para escolher onde chutar';
+
+    // Importante: Informar ao servidor que o jogador quer iniciar um novo jogo
+    if (roomId) {
+        socket.emit('requestNewGame', { roomId });
+    }
+}
 
 // Botão para voltar à página inicial
 returnHomeBtn.addEventListener('click', () => {

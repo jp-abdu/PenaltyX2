@@ -368,6 +368,30 @@ button:hover {
 }
 
 /* Ball and goalkeeper */
+#penalty-ball {
+    position: absolute;
+    width: 25px;
+    height: 25px;
+    background-color: #fff;
+    border: 2px solid #000;
+    border-radius: 50%;
+    z-index: 2; /* Abaixo da bola de chute, mas acima do gramado */
+    bottom: 30px; /* Posicionamento na parte inferior, em frente ao gol */
+    left: 50%;
+    transform: translateX(-50%); /* Centraliza horizontalmente */
+
+    /* Adiciona um pequeno sombreamento para dar efeito 3D */
+    box-shadow: inset -3px -3px 8px rgba(0, 0, 0, 0.3),
+                2px 2px 4px rgba(0, 0, 0, 0.2);
+
+    /* Adiciona padrão de "gomos" da bola com gradiente */
+    background-image: radial-gradient(circle at 30% 30%,
+                      white 5%,
+                      #f0f0f0 10%,
+                      #ddd 20%,
+                      white 50%);
+}
+
 #ball {
     position: absolute;
     width: 30px;
@@ -388,7 +412,7 @@ button:hover {
     background-size: contain;
     background-position: center;
     background-repeat: no-repeat;
-    z-index: 3;
+    z-index: 3; /* Abaixo da bola mas acima do gol */
     transition: all 0.4s ease-in-out;
     transform: translate(-50%, -50%); /* Centraliza o goleiro no ponto exato */
 }

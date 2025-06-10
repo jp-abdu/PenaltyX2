@@ -28,14 +28,19 @@ io.on('connection', (socket) => {
           player1: 0,
           player2: 0
         },
+        kicks: {
+          player1: 0,
+          player2: 0
+        },
         round: 1,
         maxRounds: 5,
+        suddenDeathMode: false,
         player1Position: null,
         player2Position: null,
         player1Ready: false,
         player2Ready: false,
         currentAttacker: 'player1', // Começa com player1 como atacante
-        turnInRound: 1 // Novo: para rastrear o turno dentro da rodada (1 = primeiro jogador, 2 = segundo jogador)
+        turnInRound: 1 // Para rastrear o turno dentro da rodada (1 = primeiro jogador, 2 = segundo jogador)
       };
     }
 
@@ -113,6 +118,70 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Função para verificar se um time já venceu por diferença de gols
+  function checkForWinByGoalDifference(room) {
+    // Se estamos no modo morte súbita, não aplicamos a regra de vantagem matemática
+    if (room.suddenDeathMode) {
+      return null;
+    }
+
+    // Rodadas completas restantes (não inclui a rodada atual)
+    const completedRounds = room.round - 1; // Rodadas já completadas
+    const remainingFullRounds = room.maxRounds - room.round; // Rodadas que ainda faltam completar
+
+    // Cálculo do total de cobranças de pênalti restantes para cada jogador
+    let player1RemainingKicks = 0;
+    let player2RemainingKicks = 0;
+
+    // Adiciona pênaltis das rodadas completas que ainda vão ocorrer
+    player1RemainingKicks += remainingFullRounds;
+    player2RemainingKicks += remainingFullRounds;
+
+    // Ajusta com base no turno atual dentro da rodada atual
+    if (room.turnInRound === 1) {
+      // Se estamos no primeiro turno, nenhum jogador chutou nesta rodada
+      player1RemainingKicks += 1; // Jogador 1 ainda chutará nesta rodada
+      player2RemainingKicks += 1; // Jogador 2 ainda chutará nesta rodada
+    } else if (room.turnInRound === 2) {
+      // Se estamos no segundo turno, apenas o jogador 2 ainda tem pênalti nesta rodada
+      // Jogador 1 já chutou, então não incrementamos seu contador
+      player2RemainingKicks += 1; // Apenas o jogador 2 ainda chutará nesta rodada
+    }
+
+    // Debug detalhado
+    console.log(`Verificando diferença de gols - Placar: ${room.scores.player1} x ${room.scores.player2}`);
+    console.log(`Rodada ${room.round}/${room.maxRounds}, Turno ${room.turnInRound}`);
+    console.log(`Pênaltis restantes: P1: ${player1RemainingKicks}, P2: ${player2RemainingKicks}`);
+
+    // Verificação se o jogo já pode acabar antecipadamente
+    if (player1RemainingKicks === 0 && room.scores.player1 > room.scores.player2) {
+      console.log(`** VITÓRIA do Jogador 1: Player 1 não tem mais chutes e está à frente`);
+      return 'player1';
+    }
+
+    if (player2RemainingKicks === 0 && room.scores.player2 > room.scores.player1) {
+      console.log(`** VITÓRIA do Jogador 2: Player 2 não tem mais chutes e está à frente`);
+      return 'player2';
+    }
+
+    // Verificações de vitória matemática
+
+    // Jogador 1 vence se tiver mais pontos que o máximo que o Jogador 2 pode conseguir
+    if (room.scores.player1 > room.scores.player2 + player2RemainingKicks) {
+      console.log(`** VITÓRIA MATEMÁTICA do Jogador 1: ${room.scores.player1} > ${room.scores.player2} + ${player2RemainingKicks}`);
+      return 'player1';
+    }
+
+    // Jogador 2 vence se tiver mais pontos que o máximo que o Jogador 1 pode conseguir
+    if (room.scores.player2 > room.scores.player1 + player1RemainingKicks) {
+      console.log(`** VITÓRIA MATEMÁTICA do Jogador 2: ${room.scores.player2} > ${room.scores.player1} + ${player1RemainingKicks}`);
+      return 'player2';
+    }
+
+    // Ninguém venceu ainda por diferença de gols
+    return null;
+  }
+
   // Função para processar o resultado da rodada
   function processRound(room) {
     // Determina quem é o atacante e o goleiro neste turno
@@ -129,7 +198,42 @@ io.on('connection', (socket) => {
       room.scores[attacker]++;
     }
 
+    // Incrementa o número de pênaltis cobrados pelo atacante atual
+    room.kicks[attacker]++;
+
     console.log(`Turno ${room.turnInRound} da Rodada ${room.round} processado - Placar: ${room.scores.player1} x ${room.scores.player2}`);
+
+    // Verifica imediatamente se alguém já venceu por diferença de gols após este chute
+    const winnerByDifference = checkForWinByGoalDifference(room);
+    if (winnerByDifference) {
+      // Um time já venceu por diferença de gols
+      console.log(`Jogo finalizado antecipadamente após o chute de ${attacker} - Time ${winnerByDifference} venceu por diferença de gols`);
+
+      // Envia primeiro o resultado da cobrança atual
+      io.to(room.id).emit('roundResult', {
+        attacker,
+        kick: attackerPosition,
+        defense: defenderPosition,
+        isGoal,
+        scores: room.scores,
+        suddenDeath: room.suddenDeathMode
+      });
+
+      // Depois envia o game over
+      setTimeout(() => {
+        io.to(room.id).emit('gameOver', {
+          winner: winnerByDifference,
+          scores: room.scores,
+          message: `${winnerByDifference === 'player1' ? 'Jogador 1' : 'Jogador 2'} venceu!`
+        });
+
+        setTimeout(() => {
+          delete rooms[room.id];
+        }, 5000);
+      }, 2000);
+
+      return;
+    }
 
     // Envia o resultado para ambos os jogadores, informando quem foi atacante
     io.to(room.id).emit('roundResult', {
@@ -137,34 +241,111 @@ io.on('connection', (socket) => {
       kick: attackerPosition,
       defense: defenderPosition,
       isGoal,
-      scores: room.scores
+      scores: room.scores,
+      suddenDeath: room.suddenDeathMode
     });
 
     // Verifica se é o fim da rodada (ambos jogadores já chutaram)
     if (room.turnInRound === 2) {
-      // Fim da rodada completa
+      // Fim da rodada completa - verificação de vitória por diferença de gols já foi feita acima
 
-      // Verifica se é o fim do jogo
-      if (room.round >= room.maxRounds) {
-        // Determina o vencedor
-        let winner = null;
-        if (room.scores.player1 > room.scores.player2) {
-          winner = 'player1';
-        } else if (room.scores.player2 > room.scores.player1) {
-          winner = 'player2';
+      // Verifica se é o fim das cobranças normais ou da morte súbita
+      if (room.round >= room.maxRounds || room.suddenDeathMode) {
+        // Situação de fim de jogo potencial
+
+        // Se estamos no modo normal (não morte súbita)
+        if (!room.suddenDeathMode) {
+          // Verifica se houve empate após as 5 cobranças
+          if (room.scores.player1 === room.scores.player2) {
+            // Empate! Ativa o modo morte súbita
+            room.suddenDeathMode = true;
+            room.round = 1; // Reset da contagem de rodadas para morte súbita
+            room.turnInRound = 1;
+            room.currentAttacker = 'player1';
+            room.player1Position = null;
+            room.player2Position = null;
+            room.player1Ready = false;
+            room.player2Ready = false;
+
+            setTimeout(() => {
+              io.to(room.id).emit('suddenDeathStart', {
+                round: room.round,
+                turn: room.turnInRound,
+                scores: room.scores,
+                attacker: room.currentAttacker,
+                message: "Empate após as 5 cobranças! Iniciando morte súbita!"
+              });
+
+              io.to(room.id).emit('nextRound', {
+                round: room.round,
+                turn: room.turnInRound,
+                scores: room.scores,
+                attacker: room.currentAttacker,
+                suddenDeath: true
+              });
+            }, 3000);
+            return;
+          }
+
+          // Não houve empate, determinamos o vencedor normalmente
+          let winner = null;
+          if (room.scores.player1 > room.scores.player2) {
+            winner = 'player1';
+          } else if (room.scores.player2 > room.scores.player1) {
+            winner = 'player2';
+          }
+
+          console.log(`Jogo finalizado - Resultado final: ${room.scores.player1} x ${room.scores.player2}, vencedor: ${winner || 'empate'}`);
+
+          io.to(room.id).emit('gameOver', {
+            winner,
+            scores: room.scores
+          });
+
+          setTimeout(() => {
+            delete rooms[room.id];
+          }, 5000);
         }
+        // Modo morte súbita
+        else {
+          // No modo morte súbita, se após ambos terem chutado houver diferença no placar, temos um vencedor
+          if (room.scores.player1 !== room.scores.player2) {
+            const winner = room.scores.player1 > room.scores.player2 ? 'player1' : 'player2';
 
-        console.log(`Jogo finalizado - Enviando gameOver - Resultado final: ${room.scores.player1} x ${room.scores.player2}, vencedor: ${winner || 'empate'}`);
+            io.to(room.id).emit('gameOver', {
+              winner,
+              scores: room.scores,
+              suddenDeath: true,
+              message: `${winner === 'player1' ? 'Jogador 1' : 'Jogador 2'} venceu na morte súbita!`
+            });
 
-        io.to(room.id).emit('gameOver', {
-          winner,
-          scores: room.scores
-        });
+            setTimeout(() => {
+              delete rooms[room.id];
+            }, 5000);
+          } else {
+            // Continua a morte súbita para próxima rodada
+            room.round++;
+            room.turnInRound = 1;
+            room.currentAttacker = 'player1';
+            room.player1Position = null;
+            room.player2Position = null;
+            room.player1Ready = false;
+            room.player2Ready = false;
 
-        setTimeout(() => {
-          delete rooms[room.id];
-        }, 5000);
-      } else {
+            setTimeout(() => {
+              io.to(room.id).emit('nextRound', {
+                round: room.round,
+                turn: room.turnInRound,
+                scores: room.scores,
+                attacker: room.currentAttacker,
+                suddenDeath: true
+              });
+            }, 3000);
+          }
+        }
+      }
+      // Ainda não chegamos ao final das 5 rodadas normais
+      else {
         // Prepara para a próxima rodada
         room.round++;
         room.turnInRound = 1;
@@ -197,11 +378,46 @@ io.on('connection', (socket) => {
           round: room.round,
           turn: room.turnInRound,
           scores: room.scores,
-          attacker: room.currentAttacker
+          attacker: room.currentAttacker,
+          suddenDeath: room.suddenDeathMode
         });
       }, 3000);
     }
   }
+
+  // Evento para quando o jogador solicita um novo jogo (após "Jogar novamente")
+  socket.on('requestNewGame', (data) => {
+    const { roomId } = data;
+    const room = rooms[roomId];
+
+    if (!room) return; // Se a sala não existe mais, ignorar
+
+    // Reset completo do estado da sala
+    room.scores = {
+      player1: 0,
+      player2: 0
+    };
+    room.kicks = {
+      player1: 0,
+      player2: 0
+    };
+    room.round = 1;
+    room.suddenDeathMode = false;
+    room.player1Position = null;
+    room.player2Position = null;
+    room.player1Ready = false;
+    room.player2Ready = false;
+    room.currentAttacker = 'player1'; // Sempre inicia com player1 como atacante
+    room.turnInRound = 1;
+
+    // Notifica que o jogador está aguardando para iniciar um novo jogo
+    socket.to(roomId).emit('opponentRequestedNewGame', {
+      message: 'O outro jogador quer jogar novamente! Entre na sala novamente para iniciar.',
+      playerId: socket.playerId
+    });
+
+    console.log(`Jogador ${socket.id} solicitou novo jogo na sala ${roomId}`);
+  });
 
   // Desconexão de jogador
   socket.on('disconnect', () => {
