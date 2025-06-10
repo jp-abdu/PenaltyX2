@@ -7,30 +7,72 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>PenaltyX2</h1>
-
-        <!-- Nova tela inicial (home) -->
-        <div id="home-screen" class="screen active">
+    <!-- Tela inicial -->
+    <div id="intro-container" class="full-container active">
+        <div class="intro-content">
+            <h1 class="intro-title">PenaltyX2</h1>
             <h2>Disputa de Pênaltis Online</h2>
-            <p>Bem-vindo ao PenaltyX2! Enfrente outros jogadores em disputas de pênaltis.</p>
-            <button id="start-game-btn" class="big-btn">Jogar</button>
+            <p class="intro-description">Bem-vindo ao PenaltyX2! Enfrente outros jogadores em disputas de pênaltis.</p>
+            <button id="start-game-btn" class="intro-btn">Jogar</button>
         </div>
+    </div>
 
-        <!-- Tela de sala (antiga tela inicial) -->
-        <div id="start-screen" class="screen">
-            <h2>Entre em uma Sala</h2>
-            <div class="form-group">
-                <input type="text" id="room-input" placeholder="Digite o código da sala">
-                <button id="join-btn">Entrar na Sala</button>
+    <!-- Nova tela de sala e seleção de time -->
+    <div id="team-selection-container" class="full-container">
+        <div class="team-selection-content">
+            <h1 class="screen-title">Entre em uma Sala</h1>
+
+            <div class="room-section">
+                <div class="form-group room-form">
+                    <input type="text" id="room-input" placeholder="Digite o código da sala">
+                    <button id="join-btn">Entrar na Sala</button>
+                </div>
+                <p id="room-waiting-message" class="hidden">Aguardando outro jogador...</p>
             </div>
-            <p id="waiting-message" class="hidden">Aguardando outro jogador...</p>
-            <button id="back-to-home-btn" class="back-btn">Voltar</button>
+
+            <div id="team-selection-section" class="hidden">
+                <h2>Escolha seu time</h2>
+                <div class="teams-container">
+                    <div class="team-option" data-team="team1">
+                        <div class="team-image team1"></div>
+                        <span class="team-name">Brasil</span>
+                    </div>
+                    <div class="team-option" data-team="team2">
+                        <div class="team-image team2"></div>
+                        <span class="team-name">Argentina</span>
+                    </div>
+                    <div class="team-option" data-team="team3">
+                        <div class="team-image team3"></div>
+                        <span class="team-name">França</span>
+                    </div>
+                    <div class="team-option" data-team="team4">
+                        <div class="team-image team4"></div>
+                        <span class="team-name">Itália</span>
+                    </div>
+                </div>
+                <button id="confirm-team-btn" class="team-btn disabled" disabled>Confirmar Time</button>
+                <p id="team-confirmation-message" class="hidden">Time confirmado! Aguardando o outro jogador confirmar...</p>
+            </div>
+
+            <button id="back-to-intro-btn" class="back-btn">Voltar</button>
         </div>
+    </div>
+
+    <!-- Container do jogo (terceira tela) -->
+    <div id="game-container" class="container">
+        <h1>PenaltyX2</h1>
 
         <!-- Tela de jogo -->
         <div id="game-screen" class="screen">
             <div class="score-board">
+                <div class="teams-display">
+                    <div class="team-display team1-display">
+                        <span id="player1-team-name">Time 1</span>
+                    </div>
+                    <div class="team-display team2-display">
+                        <span id="player2-team-name">Time 2</span>
+                    </div>
+                </div>
                 <div class="score">
                     <span id="player1-score">0</span>
                     <span>:</span>
@@ -66,12 +108,17 @@
                 <button id="ready-button" class="ready-btn">Pronto</button>
                 <p id="selection-message" class="selection-text"></p>
             </div>
+
+            <button id="leave-game-btn" class="back-btn">Sair do Jogo</button>
         </div>
 
         <!-- Tela de resultado (sobrepondo a tela de jogo) -->
         <div id="result-screen" class="screen overlay-screen">
             <div class="result-container">
                 <h2 id="result-title">Fim de jogo!</h2>
+                <div class="result-teams">
+                    <span id="final-player1-team">Time 1</span> vs <span id="final-player2-team">Time 2</span>
+                </div>
                 <div id="final-score">
                     <span id="final-player1-score">0</span>
                     <span>:</span>

@@ -39,6 +39,10 @@ io.on('connection', (socket) => {
         player2Position: null,
         player1Ready: false,
         player2Ready: false,
+        player1Team: null,  // Nova propriedade para armazenar o time do jogador 1
+        player2Team: null,  // Nova propriedade para armazenar o time do jogador 2
+        player1TeamConfirmed: false,  // Nova propriedade para confirmar o time do jogador 1
+        player2TeamConfirmed: false,  // Nova propriedade para confirmar o time do jogador 2
         currentAttacker: 'player1', // Começa com player1 como atacante
         turnInRound: 1 // Para rastrear o turno dentro da rodada (1 = primeiro jogador, 2 = segundo jogador)
       };
@@ -69,19 +73,96 @@ io.on('connection', (socket) => {
       roomId
     });
 
-    // Se dois jogadores entraram, inicia o jogo
-    if (room.players.length === 2) {
-      io.to(roomId).emit('gameStart', {
-        round: 1,
-        turn: 1,
-        attacker: 'player1'
-      });
-    }
-
     // Envia atualização sobre jogadores na sala
     io.to(roomId).emit('roomUpdate', {
       playersCount: room.players.length
     });
+
+    // Se o outro jogador já escolheu e confirmou seu time, informar esse jogador
+    if (playerId === 'player2' && room.player1TeamConfirmed) {
+      socket.emit('opponentTeamInfo', {
+        player: 'player1',
+        team: room.player1Team,
+        confirmed: true
+      });
+    } else if (playerId === 'player1' && room.player2TeamConfirmed) {
+      socket.emit('opponentTeamInfo', {
+        player: 'player2',
+        team: room.player2Team,
+        confirmed: true
+      });
+    }
+  });
+
+  // Novo evento para quando um jogador seleciona um time
+  socket.on('teamSelected', (data) => {
+    const { team } = data;
+    const room = rooms[socket.roomId];
+
+    if (!room) return;
+
+    if (socket.playerId === 'player1') {
+      room.player1Team = team;
+      socket.emit('teamConfirmation', {
+        team,
+        playerNumber: 1
+      });
+
+      // Notifica o outro jogador se ele estiver na sala
+      if (room.players.length > 1) {
+        socket.to(socket.roomId).emit('opponentSelectedTeam', {
+          player: 'player1',
+          team: team
+        });
+      }
+    } else if (socket.playerId === 'player2') {
+      room.player2Team = team;
+      socket.emit('teamConfirmation', {
+        team,
+        playerNumber: 2
+      });
+
+      // Notifica o outro jogador
+      socket.to(socket.roomId).emit('opponentSelectedTeam', {
+        player: 'player2',
+        team: team
+      });
+    }
+  });
+
+  // Novo evento para quando um jogador confirma seu time
+  socket.on('confirmTeam', () => {
+    const room = rooms[socket.roomId];
+
+    if (!room) return;
+
+    if (socket.playerId === 'player1') {
+      room.player1TeamConfirmed = true;
+      io.to(socket.roomId).emit('playerConfirmedTeam', {
+        player: 'player1',
+        team: room.player1Team
+      });
+    } else if (socket.playerId === 'player2') {
+      room.player2TeamConfirmed = true;
+      io.to(socket.roomId).emit('playerConfirmedTeam', {
+        player: 'player2',
+        team: room.player2Team
+      });
+    }
+
+    // Se ambos os jogadores confirmaram seus times E estão presentes na sala, inicia o jogo
+    if (room.player1TeamConfirmed && room.player2TeamConfirmed && room.players.length === 2) {
+      // Pequeno atraso para dar tempo aos jogadores de verem a mensagem de confirmação
+      setTimeout(() => {
+        io.to(socket.roomId).emit('gameStart', {
+          round: 1,
+          turn: 1,
+          attacker: 'player1',
+          player1Team: room.player1Team,
+          player2Team: room.player2Team
+        });
+      }, 1500);
+    }
   });
 
   // Evento para quando o jogador está pronto com sua escolha
@@ -96,19 +177,19 @@ io.on('connection', (socket) => {
       room.player1Position = position;
       room.player1Ready = true;
 
-      // Notifica o outro jogador que este está pronto
+      // Notifica o outro jogador que este está pronto, usando nome do time
       socket.to(socket.roomId).emit('opponentReady', {
         player: 'player1',
-        message: 'O jogador 1 confirmou sua escolha!'
+        message: `${getTeamName(room.player1Team)} confirmou sua escolha!`
       });
     } else {
       room.player2Position = position;
       room.player2Ready = true;
 
-      // Notifica o outro jogador que este está pronto
+      // Notifica o outro jogador que este está pronto, usando nome do time
       socket.to(socket.roomId).emit('opponentReady', {
         player: 'player2',
-        message: 'O jogador 2 confirmou sua escolha!'
+        message: `${getTeamName(room.player2Team)} confirmou sua escolha!`
       });
     }
 
@@ -117,6 +198,17 @@ io.on('connection', (socket) => {
       processRound(room);
     }
   });
+
+  // Função auxiliar para obter o nome do time
+  function getTeamName(teamCode) {
+    const teamNames = {
+      'team1': 'Brasil',
+      'team2': 'Argentina',
+      'team3': 'França',
+      'team4': 'Itália'
+    };
+    return teamNames[teamCode] || teamCode;
+  }
 
   // Função para verificar se um time já venceu por diferença de gols
   function checkForWinByGoalDifference(room) {
@@ -407,6 +499,10 @@ io.on('connection', (socket) => {
     room.player2Position = null;
     room.player1Ready = false;
     room.player2Ready = false;
+    room.player1Team = null;  // Resetando a seleção de time
+    room.player2Team = null;  // Resetando a seleção de time
+    room.player1TeamConfirmed = false;  // Resetando a confirmação de time
+    room.player2TeamConfirmed = false;  // Resetando a confirmação de time
     room.currentAttacker = 'player1'; // Sempre inicia com player1 como atacante
     room.turnInRound = 1;
 
