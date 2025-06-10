@@ -65,21 +65,23 @@
         <!-- Tela de jogo -->
         <div id="game-screen" class="screen">
             <div class="score-board">
-                <div class="teams-display">
+                <div class="score-row">
                     <div class="team-display team1-display">
                         <span id="player1-team-name">Time 1</span>
+                    </div>
+                    <div class="score">
+                        <span id="player1-score">0</span>
+                        <span>:</span>
+                        <span id="player2-score">0</span>
                     </div>
                     <div class="team-display team2-display">
                         <span id="player2-team-name">Time 2</span>
                     </div>
                 </div>
-                <div class="score">
-                    <span id="player1-score">0</span>
-                    <span>:</span>
-                    <span id="player2-score">0</span>
+                <div class="game-info-row">
+                    <div class="round">Rodada: <span id="round-counter">1</span>/5</div>
+                    <div class="turn-counter">Vez: Jogador <span id="turn-player">1</span></div>
                 </div>
-                <div class="round">Rodada: <span id="round-counter">1</span>/5</div>
-                <div class="turn-counter">Vez: Jogador <span id="turn-player">1</span></div>
             </div>
 
             <div id="turn-info">Aguardando...</div>
@@ -98,6 +100,7 @@
                     <div id="penalty-ball"></div>
                     <div id="ball" class="hidden"></div>
                     <div id="goalkeeper" class="hidden"></div>
+                    <div id="player" class="player-waiting"></div>
                 </div>
             </div>
 

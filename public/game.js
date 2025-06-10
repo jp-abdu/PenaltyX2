@@ -29,6 +29,7 @@ const goalSpots = document.querySelectorAll('.spot');
 const ball = document.getElementById('ball');
 const penaltyBall = document.getElementById('penalty-ball');
 const goalkeeper = document.getElementById('goalkeeper');
+const player = document.getElementById('player'); // Novo elemento do jogador
 const player1Score = document.getElementById('player1-score');
 const player2Score = document.getElementById('player2-score');
 const player1TeamName = document.getElementById('player1-team-name');
@@ -67,11 +68,51 @@ let player2TeamData = null; // Armazena o time do jogador 2
 
 // Mapeamento das posições do gol com coordenadas para animações
 const goalPositions = {
-    'top-left': { ballX: '15%', ballY: '15%', keeperX: '15%', keeperY: '15%' },
-    'top-right': { ballX: '85%', ballY: '15%', keeperX: '85%', keeperY: '15%' },
-    'center': { ballX: '50%', ballY: '50%', keeperX: '50%', keeperY: '50%' },
-    'bottom-left': { ballX: '15%', ballY: '60%', keeperX: '15%', keeperY: '60%' },
-    'bottom-right': { ballX: '85%', ballY: '60%', keeperX: '85%', keeperY: '60%' }
+    'top-left': {
+        ballX: '15%',
+        ballY: '15%',
+        keeperX: '28%',  // Ajustado mais para a direita para alinhar a mão com a bola
+        keeperY: '20%',  // Ajustado mais para baixo para alinhar a mão com a bola
+        keeperClass: 'goalkeeper-diving-top-left',
+        handX: '15%',
+        handY: '15%'
+    },
+    'top-right': {
+        ballX: '85%',
+        ballY: '15%',
+        keeperX: '72%',  // Ajustado mais para a esquerda para alinhar a mão com a bola
+        keeperY: '20%',  // Ajustado mais para baixo para alinhar a mão com a bola
+        keeperClass: 'goalkeeper-diving-top-right',
+        handX: '85%',
+        handY: '15%'
+    },
+    'center': {
+        ballX: '50%',
+        ballY: '50%',
+        keeperX: '50%',
+        keeperY: '50%',  // Restaurada posição original do goleiro no centro
+        keeperClass: 'goalkeeper-waiting',
+        handX: '50%',
+        handY: '50%'
+    },
+    'bottom-left': {
+        ballX: '15%',
+        ballY: '60%',
+        keeperX: '28%',  // Ajustado mais para a direita para alinhar a mão com a bola
+        keeperY: '55%',  // Ajustado para cima para alinhar a mão com a bola
+        keeperClass: 'goalkeeper-diving-bottom-left',
+        handX: '15%',
+        handY: '60%'
+    },
+    'bottom-right': {
+        ballX: '85%',
+        ballY: '60%',
+        keeperX: '72%',  // Ajustado mais para a esquerda para alinhar a mão com a bola
+        keeperY: '55%',  // Ajustado para cima para alinhar a mão com a bola
+        keeperClass: 'goalkeeper-diving-bottom-right',
+        handX: '85%',
+        handY: '60%'
+    }
 };
 
 // Cores dos times para estilizar o placar
@@ -280,10 +321,27 @@ socket.on('opponentTeamInfo', (data) => {
 socket.on('opponentSelectedTeam', (data) => {
     const { player, team } = data;
 
-    // Armazenamos a seleção do oponente
+    // Primeiro, libera todos os times, exceto o que acabou de ser selecionado pelo oponente
+    teamOptions.forEach(option => {
+        // Se não for o time que acabou de ser selecionado pelo oponente
+        // E não for um time já confirmado (verificação feita pelo estilo da opção)
+        if (option.dataset.team !== team && !option.querySelector('.team-confirmed-indicator')) {
+            // Restaura a aparência normal
+            option.style.opacity = '1';
+            option.style.cursor = 'pointer';
+
+            // Remove o indicador visual caso exista
+            const existingIndicator = option.querySelector('.team-selected-indicator');
+            if (existingIndicator) {
+                existingIndicator.remove();
+            }
+        }
+    });
+
+    // Armazenamos a seleção atual do oponente
     opponentSelectedTeam = team;
 
-    // Marca o time como selecionado pelo oponente
+    // Agora marca apenas o time recém selecionado como bloqueado
     teamOptions.forEach(option => {
         if (option.dataset.team === team) {
             // Se o usuário atual já tinha selecionado este time e não confirmou, deve selecionar outro
@@ -300,7 +358,13 @@ socket.on('opponentSelectedTeam', (data) => {
                 option.style.opacity = '0.5';
                 option.style.cursor = 'not-allowed';
 
-                // Adicionar um indicador visual
+                // Remover indicador existente
+                const existingIndicator = option.querySelector('.team-selected-indicator');
+                if (existingIndicator) {
+                    existingIndicator.remove();
+                }
+
+                // Adicionar novo indicador
                 if (!option.querySelector('.team-selected-indicator')) {
                     const indicator = document.createElement('div');
                     indicator.className = 'team-selected-indicator';
@@ -590,18 +654,32 @@ socket.on('roundResult', (data) => {
     const kickPos = goalPositions[data.kick];
     const defensePos = goalPositions[data.defense];
 
-    // Posiciona e mostra a bola
-    ball.style.left = kickPos.ballX;
-    ball.style.top = kickPos.ballY;
-    ball.classList.remove('hidden');
+    // Muda a imagem do jogador para a posição de chute
+    player.classList.remove('player-waiting');
+    player.classList.add('player-kicking');
 
     // Oculta a bola de pênalti quando a bola de chute é mostrada
     penaltyBall.classList.add('hidden');
 
-    // Posiciona e mostra o goleiro
+    // Posiciona e mostra o goleiro com a classe apropriada para a direção do movimento
+    goalkeeper.className = ''; // Remove todas as classes anteriores
+    goalkeeper.classList.add(defensePos.keeperClass); // Adiciona a classe baseada na posição
     goalkeeper.style.left = defensePos.keeperX;
     goalkeeper.style.top = defensePos.keeperY;
     goalkeeper.classList.remove('hidden');
+
+    // Se foi defesa (não foi gol), a bola aparece "na mão" do goleiro
+    // Caso contrário, a bola vai para onde o jogador chutou
+    if (!data.isGoal) {
+        // Foi defesa, a bola deve aparecer na posição da mão do goleiro
+        ball.style.left = defensePos.handX;
+        ball.style.top = defensePos.handY;
+    } else {
+        // Foi gol, a bola aparece onde foi chutada
+        ball.style.left = kickPos.ballX;
+        ball.style.top = kickPos.ballY;
+    }
+    ball.classList.remove('hidden');
 
     // Atualiza o placar
     player1Score.textContent = data.scores.player1;
@@ -721,12 +799,22 @@ socket.on('gameOver', (data) => {
 
 // Função para resetar o estado para uma nova rodada/turno
 function resetRound() {
-    // Esconde a bola e o goleiro
+    // Esconde a bola do chute
     ball.classList.add('hidden');
-    goalkeeper.classList.add('hidden');
 
     // Mostra a bola de pênalti quando a bola de chute é ocultada
     penaltyBall.classList.remove('hidden');
+
+    // Retorna o jogador à posição de espera
+    player.classList.remove('player-kicking');
+    player.classList.add('player-waiting');
+
+    // Coloca o goleiro parado no centro e o mostra (não esconde mais)
+    goalkeeper.className = ''; // Remove todas as classes anteriores
+    goalkeeper.classList.add('goalkeeper-waiting'); // Adiciona classe de goleiro parado
+    goalkeeper.style.left = '50%';
+    goalkeeper.style.top = '50%'; // Restaura posição original centralizada
+    goalkeeper.classList.remove('hidden');
 
     // Reseta variáveis de estado
     selectedPosition = null;
@@ -808,17 +896,41 @@ function setGoalSpotsEnabled(enabled) {
             spot.removeEventListener('click', handleSpotClick);
         }
     });
+    // Permitir clicar no goleiro para selecionar o centro
+    if (enabled) {
+        goalkeeper.style.cursor = 'pointer';
+        goalkeeper.addEventListener('click', handleSpotClick);
+    } else {
+        goalkeeper.style.cursor = 'default';
+        goalkeeper.removeEventListener('click', handleSpotClick);
+    }
 }
 
 // Handler para clique nas áreas do gol
 function handleSpotClick(event) {
-    const position = event.target.dataset.position;
+    // Obtém a posição do elemento clicado através do atributo data-position
+    // Se for um clique diretamente no spot, usamos dataset.position, caso contrário verificamos se foi um clique no goleiro
+    const position = event.target.dataset.position || (event.target === goalkeeper ? 'center' : null);
+    console.log("Área clicada:", position); // Log para ajudar na depuração
+
+    // Verifica se a posição é válida antes de prosseguir
+    if (!position) {
+        console.error("Clique em posição indefinida");
+        return;
+    }
+
+    // Não vamos mais destacar visualmente a área selecionada com cor de fundo
+    // Removendo o código que alterava o background-color dos spots
+
     selectedPosition = position;
+
     if (playerRole === currentAttacker) {
         selectionMessage.textContent = `Chute selecionado: ${getPositionName(position)}`;
     } else {
         selectionMessage.textContent = `Defesa selecionada: ${getPositionName(position)}`;
     }
+
+    // Mostra o botão de confirmar
     readyButtonContainer.classList.remove('hidden');
 }
 

@@ -476,20 +476,33 @@ button:hover {
 
 /* Score board */
 .score-board {
-    margin: 5px auto;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-direction: column;
+    margin: 5px auto 10px; /* Ajustado para ter mais espaço vertical */
     width: 100%;
     max-width: 500px;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 5px 15px; /* Aumentado de 2px para 5px */
+    border-radius: 8px;
 }
 
-.teams-display {
+/* Ajustando margem do score-board no game-screen especificamente */
+#game-screen .score-board {
+    margin-top: 5px;
+    margin-bottom: 15px;
+}
+
+.score-row {
     display: flex;
     justify-content: space-between;
+    align-items: center;
     width: 100%;
-    margin-bottom: 5px;
+}
+
+.game-info-row {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    margin-top: 5px;
+    font-size: 14px;
 }
 
 .team-display {
@@ -499,49 +512,37 @@ button:hover {
     border-radius: 4px;
     color: white;
     text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);
+    min-width: 100px;
+    text-align: center;
 }
 
 .team1-display {
     background-color: #009c3b; /* Brasil - Verde */
-    margin-right: 5px;
 }
 
 .team2-display {
     background-color: #75aadb; /* Argentina - Azul claro */
-    margin-left: 5px;
 }
 
 .score {
-    font-size: 32px;
+    font-size: 28px;
     font-weight: bold;
-    margin-bottom: 10px;
+    text-align: center;
+    min-width: 80px;
 }
 
 .score span {
-    margin: 0 10px;
+    margin: 0 5px;
 }
 
-.round {
-    font-size: 18px;
-    color: #7f8c8d;
-    margin-bottom: 5px;
+.round, .turn-counter {
+    font-size: 14px;
+    color: #444;
+    font-weight: bold;
 }
 
 .turn-counter {
-    font-size: 16px;
     color: #e67e22;
-    font-weight: bold;
-    background-color: rgba(255, 255, 255, 0.8);
-    padding: 3px 8px;
-    border-radius: 4px;
-    margin-top: 5px;
-}
-
-/* Estilo para a tela de resultado com times */
-.result-teams {
-    font-size: 22px;
-    font-weight: bold;
-    margin: 10px 0;
 }
 
 /* Goal area */
@@ -550,17 +551,18 @@ button:hover {
     width: 100%;
     display: flex;
     justify-content: center;
-    margin: 10px 0; /* Reduzido de 30px para 10px */
+    margin: 0; /* Sem margem */
 }
 
 .goal-area {
     position: relative;
-    width: 400px;
-    height: 250px;
+    width: 400px; /* Mantido o tamanho original de 400px */
+    height: 250px; /* Mantido o tamanho original de 250px */
     background-color: transparent;
     border: none;
     border-radius: 0;
     overflow: visible;
+    margin-top: -15px; /* Aumentada a margem negativa para subir ainda mais o gol */
 }
 
 /* Adicionando representação visual do gol */
@@ -660,6 +662,9 @@ button:hover {
 
 .spot[data-position="center"] {
     grid-area: center;
+    min-width: 70px;  /* Aumentando o tamanho mínimo do spot central */
+    min-height: 70px; /* para facilitar o clique */
+    z-index: 10;      /* Aumentando o z-index para garantir que fique acima do goleiro e seja clicável */
 }
 
 .spot[data-position="bottom-left"] {
@@ -684,10 +689,10 @@ button:hover {
     background-color: #fff;
     border: 2px solid #000;
     border-radius: 50%;
-    z-index: 2; /* Abaixo da bola de chute, mas acima do gramado */
-    bottom: 1px; /* Posicionamento na parte inferior, em frente ao gol */
+    z-index: 2; /* Mantido em 2 para ficar na frente do goleiro */
+    bottom: 1px;
     left: 50%;
-    transform: translateX(-50%); /* Centraliza horizontalmente */
+    transform: translateX(-50%);
 
     /* Adiciona um pequeno sombreamento para dar efeito 3D */
     box-shadow: inset -3px -3px 8px rgba(0, 0, 0, 0.3),
@@ -699,6 +704,71 @@ button:hover {
                       #f0f0f0 10%,
                       #ddd 20%,
                       white 50%);
+}
+
+/* Estilo do jogador */
+#player {
+    position: absolute;
+    width: 160px; /* Tamanho mantido */
+    height: 180px; /* Tamanho mantido */
+    bottom: -40px; /* Valor reduzido para posicionar mais para baixo, mais próximo da parte inferior */
+    left: 38%; /* Mantido mais para a esquerda */
+    transform: translateX(-50%);
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    z-index: 1; /* Mantido atrás da bola */
+    transition: all 0.3s ease;
+}
+
+/* Jogador parado antes do chute */
+.player-waiting {
+    background-image: url('./assets/jogadorparado.png');
+}
+/* Jogador fazendo movimento de chute */
+.player-kicking {
+    background-image: url('./assets/jogadorchutando.png');
+}
+
+/* Estilo do goleiro */
+#goalkeeper {
+    position: absolute;
+    width: 160px; /* Aumentado de 120px para 160px */
+    height: 180px; /* Aumentado de 140px para 180px */
+    transform: translate(-50%, -50%);
+    background-size: 160px 180px !important;
+    background-position: center;
+    background-repeat: no-repeat;
+    z-index: 3; /* Entre a bola e o jogador */
+    transition: all 0.4s ease;
+}
+
+/* Goleiro parado no centro */
+.goalkeeper-waiting {
+    background-image: url('./assets/goleiro_parado.png');
+}
+
+/* Goleiro pulando para diferentes direções - usando imagens específicas para cada canto */
+.goalkeeper-diving-top-left {
+    background-image: url('./assets/goleiro_pulando-Sup-Esq.png');
+}
+
+.goalkeeper-diving-top-right {
+    background-image: url('./assets/goleiro_pulando-Sup-Dire.png');
+}
+
+.goalkeeper-diving-bottom-left {
+    background-image: url('./assets/goleiro_pulando-Inf-Esq.png');
+}
+
+.goalkeeper-diving-bottom-right {
+    background-image: url('./assets/goleiro_pulando-Inf-Dire.png');
+}
+
+/* Removendo as classes antigas que não serão mais usadas */
+.goalkeeper-diving-left,
+.goalkeeper-diving-right {
+    display: none;
 }
 
 #ball {
@@ -713,26 +783,13 @@ button:hover {
     transform: translate(-50%, -50%); /* Centraliza a bola no ponto exato */
 }
 
-#goalkeeper {
-    position: absolute;
-    width: 100px;
-    height: 100px;
-    background-image: url('./assets/goleiro.png');
-    background-size: contain;
-    background-position: center;
-    background-repeat: no-repeat;
-    z-index: 3; /* Abaixo da bola mas acima do gol */
-    transition: all 0.4s ease-in-out;
-    transform: translate(-50%, -50%); /* Centraliza o goleiro no ponto exato */
-}
-
 /* Turn info and action messages */
 #turn-info {
-    font-size: 20px;
+    font-size: 17px; /* Aumentado para melhor legibilidade */
     font-weight: bold;
-    margin: 5px auto; /* Reduzido de 15px para 5px */
+    margin: 0 auto 8px; /* Aumentando a margem inferior para separar da próxima mensagem */
     color: #2c3e50;
-    padding: 5px; /* Reduzido de 10px para 5px */
+    padding: 4px 10px; /* Aumentado para melhor visual */
     background-color: rgba(255, 255, 255, 0.8);
     border-radius: 5px;
     width: fit-content;
@@ -740,10 +797,10 @@ button:hover {
 }
 
 #action-message {
-    font-size: 16px;
+    font-size: 15px; /* Aumentado para melhor legibilidade */
     color: #7f8c8d;
-    margin: 5px auto; /* Reduzido de 15px para 5px */
-    padding: 5px; /* Reduzido de 10px para 5px */
+    margin: 0 auto 8px; /* Aumentando a margem inferior */
+    padding: 4px 10px; /* Aumentado para melhor visual */
     background-color: rgba(255, 255, 255, 0.8);
     border-radius: 5px;
     width: fit-content;
@@ -763,17 +820,17 @@ button:hover {
     color: inherit;
 }
 
-/* Game screen - tela mais compacta */
+/* Game screen - tela mais ampla */
 #game-screen {
     background-image: url('./assets/fundograma.webp');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    padding: 10px; /* Reduzido de 20px para 10px */
+    padding: 15px; /* Aumentado de 10px para 15px */
     border-radius: 10px;
     position: relative;
-    min-height: 450px; /* Reduzido para caber melhor na tela */
-    max-height: 95vh; /* Limita a altura máxima para não precisar scrollar */
+    min-height: 500px; /* Aumentado de 450px para 500px */
+    max-height: 98vh; /* Aumentado de 95vh para 98vh */
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -850,14 +907,9 @@ button:hover {
     text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
 }
 
-/* Responsive */
-@media (max-width: 600px) {
-    .goal-area {
-        width: 100%;
-        height: 200px;
-    }
-    .button-group {
-        flex-direction: column;
-        align-items: center;
-    }
+/* Ajustes Finais */
+#game-container h1 {
+    margin-top: 0;
+    margin-bottom: 5px;
+    font-size: 2rem; /* Reduzir o tamanho do título para economizar espaço vertical */
 }
