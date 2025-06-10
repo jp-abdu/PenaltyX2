@@ -10,14 +10,22 @@
     <div class="container">
         <h1>PenaltyX2</h1>
 
-        <!-- Tela inicial -->
-        <div id="start-screen" class="screen active">
+        <!-- Nova tela inicial (home) -->
+        <div id="home-screen" class="screen active">
             <h2>Disputa de Pênaltis Online</h2>
+            <p>Bem-vindo ao PenaltyX2! Enfrente outros jogadores em disputas de pênaltis.</p>
+            <button id="start-game-btn" class="big-btn">Jogar</button>
+        </div>
+
+        <!-- Tela de sala (antiga tela inicial) -->
+        <div id="start-screen" class="screen">
+            <h2>Entre em uma Sala</h2>
             <div class="form-group">
                 <input type="text" id="room-input" placeholder="Digite o código da sala">
                 <button id="join-btn">Entrar na Sala</button>
             </div>
             <p id="waiting-message" class="hidden">Aguardando outro jogador...</p>
+            <button id="back-to-home-btn" class="back-btn">Voltar</button>
         </div>
 
         <!-- Tela de jogo -->
@@ -29,6 +37,7 @@
                     <span id="player2-score">0</span>
                 </div>
                 <div class="round">Rodada: <span id="round-counter">1</span>/5</div>
+                <div class="turn-counter">Vez: Jogador <span id="turn-player">1</span></div>
             </div>
 
             <div id="turn-info">Aguardando...</div>
@@ -58,16 +67,21 @@
             </div>
         </div>
 
-        <!-- Tela de resultado -->
-        <div id="result-screen" class="screen">
-            <h2 id="result-title">Fim de jogo!</h2>
-            <div id="final-score">
-                <span id="final-player1-score">0</span>
-                <span>:</span>
-                <span id="final-player2-score">0</span>
+        <!-- Tela de resultado (sobrepondo a tela de jogo) -->
+        <div id="result-screen" class="screen overlay-screen">
+            <div class="result-container">
+                <h2 id="result-title">Fim de jogo!</h2>
+                <div id="final-score">
+                    <span id="final-player1-score">0</span>
+                    <span>:</span>
+                    <span id="final-player2-score">0</span>
+                </div>
+                <div id="result-message"></div>
+                <div class="button-group">
+                    <button id="play-again-btn">Jogar novamente</button>
+                    <button id="return-home-btn">Voltar ao início</button>
+                </div>
             </div>
-            <div id="result-message"></div>
-            <button id="play-again-btn">Jogar novamente</button>
         </div>
     </div>
 

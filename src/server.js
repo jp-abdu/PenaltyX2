@@ -28,13 +28,14 @@ io.on('connection', (socket) => {
           player1: 0,
           player2: 0
         },
-        round: 1, // Corrigido de 0 para 1 para corresponder ao evento gameStart
+        round: 1,
         maxRounds: 5,
         player1Position: null,
         player2Position: null,
         player1Ready: false,
         player2Ready: false,
-        currentAttacker: 'player1' // Começa com player1 como atacante
+        currentAttacker: 'player1', // Começa com player1 como atacante
+        turnInRound: 1 // Novo: para rastrear o turno dentro da rodada (1 = primeiro jogador, 2 = segundo jogador)
       };
     }
 
@@ -66,7 +67,9 @@ io.on('connection', (socket) => {
     // Se dois jogadores entraram, inicia o jogo
     if (room.players.length === 2) {
       io.to(roomId).emit('gameStart', {
-        round: 1
+        round: 1,
+        turn: 1,
+        attacker: 'player1'
       });
     }
 
@@ -112,7 +115,7 @@ io.on('connection', (socket) => {
 
   // Função para processar o resultado da rodada
   function processRound(room) {
-    // Determina quem é o atacante e o goleiro nesta rodada
+    // Determina quem é o atacante e o goleiro neste turno
     const attacker = room.currentAttacker;
     const defender = attacker === 'player1' ? 'player2' : 'player1';
     const attackerPosition = attacker === 'player1' ? room.player1Position : room.player2Position;
@@ -126,7 +129,7 @@ io.on('connection', (socket) => {
       room.scores[attacker]++;
     }
 
-    console.log(`Rodada ${room.round} processada - Placar: ${room.scores.player1} x ${room.scores.player2}`);
+    console.log(`Turno ${room.turnInRound} da Rodada ${room.round} processado - Placar: ${room.scores.player1} x ${room.scores.player2}`);
 
     // Envia o resultado para ambos os jogadores, informando quem foi atacante
     io.to(room.id).emit('roundResult', {
@@ -137,28 +140,52 @@ io.on('connection', (socket) => {
       scores: room.scores
     });
 
-    // Incrementa a rodada SÓ DEPOIS de processar o fim do jogo
-    if (room.round >= room.maxRounds) {
-      // Determina o vencedor
-      let winner = null;
-      if (room.scores.player1 > room.scores.player2) {
-        winner = 'player1';
-      } else if (room.scores.player2 > room.scores.player1) {
-        winner = 'player2';
+    // Verifica se é o fim da rodada (ambos jogadores já chutaram)
+    if (room.turnInRound === 2) {
+      // Fim da rodada completa
+
+      // Verifica se é o fim do jogo
+      if (room.round >= room.maxRounds) {
+        // Determina o vencedor
+        let winner = null;
+        if (room.scores.player1 > room.scores.player2) {
+          winner = 'player1';
+        } else if (room.scores.player2 > room.scores.player1) {
+          winner = 'player2';
+        }
+
+        console.log(`Jogo finalizado - Enviando gameOver - Resultado final: ${room.scores.player1} x ${room.scores.player2}, vencedor: ${winner || 'empate'}`);
+
+        io.to(room.id).emit('gameOver', {
+          winner,
+          scores: room.scores
+        });
+
+        setTimeout(() => {
+          delete rooms[room.id];
+        }, 5000);
+      } else {
+        // Prepara para a próxima rodada
+        room.round++;
+        room.turnInRound = 1;
+        room.currentAttacker = 'player1'; // Reset para o primeiro jogador da nova rodada
+        room.player1Position = null;
+        room.player2Position = null;
+        room.player1Ready = false;
+        room.player2Ready = false;
+
+        setTimeout(() => {
+          io.to(room.id).emit('nextRound', {
+            round: room.round,
+            turn: room.turnInRound,
+            scores: room.scores,
+            attacker: room.currentAttacker
+          });
+        }, 3000);
       }
-
-      console.log(`Jogo finalizado - Enviando gameOver - Resultado final: ${room.scores.player1} x ${room.scores.player2}, vencedor: ${winner || 'empate'}`);
-
-      io.to(room.id).emit('gameOver', {
-        winner,
-        scores: room.scores
-      });
-
-      setTimeout(() => {
-        delete rooms[room.id];
-      }, 5000);
     } else {
-      // Alterna o atacante para a próxima rodada
+      // Ainda falta um jogador chutar nesta rodada
+      room.turnInRound = 2;
       room.currentAttacker = room.currentAttacker === 'player1' ? 'player2' : 'player1';
       room.player1Position = null;
       room.player2Position = null;
@@ -166,12 +193,12 @@ io.on('connection', (socket) => {
       room.player2Ready = false;
 
       setTimeout(() => {
-        io.to(room.id).emit('nextRound', {
-          round: room.round + 1,
+        io.to(room.id).emit('nextTurn', {
+          round: room.round,
+          turn: room.turnInRound,
           scores: room.scores,
           attacker: room.currentAttacker
         });
-        room.round++;
       }, 3000);
     }
   }
