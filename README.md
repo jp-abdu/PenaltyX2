@@ -1,5 +1,5 @@
 # PenaltyX2 - Disputa de Pênaltis Online
-
+- Um jogo simples de disputa de penaltis de navegador
 ## Comandos úteis para PowerShell
 
 ### Iniciar o servidor na porta padrão (3000):
