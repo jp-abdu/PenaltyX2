@@ -1,5 +1,24 @@
 // Conexão com o servidor via Socket.IO
-const socket = io();
+// Detectar automaticamente o servidor correto, seja local ou no Vercel
+const socket = io({
+    transports: ['websocket', 'polling'],
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+    timeout: 20000
+});
+
+// Log de status da conexão
+socket.on('connect', () => {
+    console.log('Conectado ao servidor com ID:', socket.id);
+});
+
+socket.on('connect_error', (error) => {
+    console.error('Erro de conexão:', error);
+});
+
+socket.on('disconnect', (reason) => {
+    console.log('Desconectado do servidor. Motivo:', reason);
+});
 
 // Elementos HTML - Tela inicial
 const introContainer = document.getElementById('intro-container');

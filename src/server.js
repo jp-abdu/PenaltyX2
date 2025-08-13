@@ -5,11 +5,21 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
+]
+// Configuração do Socket.IO com opções específicas para ambientes de produção como Vercel
 const io = socketIO(server, {
   cors: {
-    origin: '*', // Permite conexões de qualquer origem
-    methods: ["GET", "POST"]
-  }
+    origin: "*",
+    methods: ["GET", "POST"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true
+  },
+  transports: ['websocket', 'polling'], // Garantir que ambos os modos de transporte estejam disponíveis
+  pingTimeout: 60000, // Aumentar o timeout para 60 segundos
+  pingInterval: 25000, // Intervalo de ping para manter a conexão ativa
+  allowUpgrades: true,
+  upgrade: true,
+  cookie: false
 });
 
 // Servindo arquivos estáticos da pasta public
@@ -22,7 +32,11 @@ app.get('/', (req, res) => {
 
 // Rota de status para monitoramento
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'online', players: Object.keys(rooms).length });
+  res.status(200).json({
+    status: 'online',
+    rooms: Object.keys(rooms).length,
+    stats: serverStats
+  });
 });
 
 // Armazenar salas de jogo
@@ -33,16 +47,28 @@ const serverStats = {
   startTime: new Date(),
   totalGames: 0,
   activePlayers: 0,
-  completedMatches: 0
+  completedMatches: 0,
+  lastConnections: []
 };
 
 // Gerenciador de conexões Socket.IO
 io.on('connection', (socket) => {
   console.log(`Novo usuário conectado: ${socket.id}`);
   serverStats.activePlayers++;
+  serverStats.lastConnections.push({
+    id: socket.id,
+    time: new Date()
+  });
+
+  // Mantemos apenas as últimas 10 conexões para debug
+  if (serverStats.lastConnections.length > 10) {
+    serverStats.lastConnections.shift();
+  }
 
   // Criação ou entrada em sala
   socket.on('joinRoom', (roomId) => {
+    console.log(`Usuário ${socket.id} tentando entrar na sala: ${roomId}`);
+
     // Se a sala não existir, cria uma nova
     if (!rooms[roomId]) {
       rooms[roomId] = {
@@ -72,12 +98,14 @@ io.on('connection', (socket) => {
         createdAt: new Date()
       };
       serverStats.totalGames++;
+      console.log(`Nova sala criada: ${roomId}`);
     }
 
     // Se a sala já tiver 2 jogadores, impede a entrada
     const room = rooms[roomId];
     if (room.players.length >= 2) {
       socket.emit('roomFull');
+      console.log(`Sala ${roomId} está cheia. Entrada negada para ${socket.id}`);
       return;
     }
 
@@ -88,6 +116,7 @@ io.on('connection', (socket) => {
       playerId,
       joinedAt: new Date()
     });
+    console.log(`Jogador ${socket.id} entrou como ${playerId} na sala ${roomId}`);
 
     // Junta o socket à sala
     socket.join(roomId);
@@ -104,6 +133,7 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('roomUpdate', {
       playersCount: room.players.length
     });
+    console.log(`Atualização da sala ${roomId}: ${room.players.length} jogadores`);
 
     // Se o outro jogador já escolheu e confirmou seu time, informar esse jogador
     if (playerId === 'player2' && room.player1TeamConfirmed) {
@@ -112,12 +142,14 @@ io.on('connection', (socket) => {
         team: room.player1Team,
         confirmed: true
       });
+      console.log(`Informando jogador 2 sobre o time do jogador 1: ${room.player1Team}`);
     } else if (playerId === 'player1' && room.player2TeamConfirmed) {
       socket.emit('opponentTeamInfo', {
         player: 'player2',
         team: room.player2Team,
         confirmed: true
       });
+      console.log(`Informando jogador 1 sobre o time do jogador 2: ${room.player2Team}`);
     }
   });
 
@@ -583,9 +615,17 @@ setInterval(() => {
   }
 }, 30 * 60 * 1000);
 
+// Log periódico do estado do servidor (a cada 5 minutos)
+setInterval(() => {
+  console.log(`--- Status do servidor (${new Date().toISOString()}) ---`);
+  console.log(`Salas ativas: ${Object.keys(rooms).length}`);
+  console.log(`Jogadores ativos: ${serverStats.activePlayers}`);
+  console.log(`Total de jogos iniciados: ${serverStats.totalGames}`);
+}, 5 * 60 * 1000);
+
 // Pega a porta dos argumentos da linha de comando ou usa valores padrão
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
-  console.log(`Acesse o jogo em: http://localhost:${PORT}`);
+  console.log(`Acesse o jogo em: ${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `http://localhost:${PORT}`}`);
 });
