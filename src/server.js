@@ -3,10 +3,14 @@ const http = require('http');
 const socketIO = require('socket.io');
 const path = require('path');
 
+// Configurações para o ambiente de produção
+const PORT = process.env.PORT || 3000;
+const RENDER_EXTERNAL_URL = process.env.RENDER_EXTERNAL_URL || null;
+
 const app = express();
 const server = http.createServer(app);
-]
-// Configuração do Socket.IO com opções específicas para ambientes de produção como Vercel
+
+// Configuração do Socket.IO com opções específicas para ambientes de produção como Render
 const io = socketIO(server, {
   cors: {
     origin: "*",
@@ -624,8 +628,12 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 // Pega a porta dos argumentos da linha de comando ou usa valores padrão
-const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
-  console.log(`Acesse o jogo em: ${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `http://localhost:${PORT}`}`);
+  if (RENDER_EXTERNAL_URL) {
+    console.log(`Acesse o jogo online em: ${RENDER_EXTERNAL_URL}`);
+  } else {
+    console.log(`Acesse o jogo em: http://localhost:${PORT}`);
+  }
+  console.log(`Servidor PenaltyX2 iniciado em ${new Date().toLocaleString()}`);
 });
