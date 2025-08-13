@@ -5,17 +5,41 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIO(server);
+const io = socketIO(server, {
+  cors: {
+    origin: '*', // Permite conexões de qualquer origem
+    methods: ["GET", "POST"]
+  }
+});
 
 // Servindo arquivos estáticos da pasta public
 app.use(express.static(path.join(__dirname, '../public')));
 
+// Rota principal
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+// Rota de status para monitoramento
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'online', players: Object.keys(rooms).length });
+});
+
 // Armazenar salas de jogo
 const rooms = {};
+
+// Armazenar estatísticas do servidor
+const serverStats = {
+  startTime: new Date(),
+  totalGames: 0,
+  activePlayers: 0,
+  completedMatches: 0
+};
 
 // Gerenciador de conexões Socket.IO
 io.on('connection', (socket) => {
   console.log(`Novo usuário conectado: ${socket.id}`);
+  serverStats.activePlayers++;
 
   // Criação ou entrada em sala
   socket.on('joinRoom', (roomId) => {
@@ -44,8 +68,10 @@ io.on('connection', (socket) => {
         player1TeamConfirmed: false,  // Nova propriedade para confirmar o time do jogador 1
         player2TeamConfirmed: false,  // Nova propriedade para confirmar o time do jogador 2
         currentAttacker: 'player1', // Começa com player1 como atacante
-        turnInRound: 1 // Para rastrear o turno dentro da rodada (1 = primeiro jogador, 2 = segundo jogador)
+        turnInRound: 1, // Para rastrear o turno dentro da rodada (1 = primeiro jogador, 2 = segundo jogador)
+        createdAt: new Date()
       };
+      serverStats.totalGames++;
     }
 
     // Se a sala já tiver 2 jogadores, impede a entrada
@@ -59,7 +85,8 @@ io.on('connection', (socket) => {
     const playerId = room.players.length === 0 ? 'player1' : 'player2';
     room.players.push({
       id: socket.id,
-      playerId
+      playerId,
+      joinedAt: new Date()
     });
 
     // Junta o socket à sala
@@ -518,6 +545,7 @@ io.on('connection', (socket) => {
   // Desconexão de jogador
   socket.on('disconnect', () => {
     console.log(`Usuário desconectado: ${socket.id}`);
+    serverStats.activePlayers--;
 
     // Se estava em uma sala, notificar o outro jogador
     if (socket.roomId && rooms[socket.roomId]) {
@@ -527,8 +555,13 @@ io.on('connection', (socket) => {
       room.players = room.players.filter(player => player.id !== socket.id);
 
       if (room.players.length === 0) {
-        // Sala vazia, remover
-        delete rooms[socket.roomId];
+        // Sala vazia, remover após um tempo para caso o jogador reconecte
+        setTimeout(() => {
+          if (rooms[socket.roomId] && rooms[socket.roomId].players.length === 0) {
+            delete rooms[socket.roomId];
+            console.log(`Sala ${socket.roomId} removida por inatividade`);
+          }
+        }, 10 * 60 * 1000); // 10 minutos
       } else {
         // Notifica o jogador restante
         io.to(socket.roomId).emit('playerLeft');
@@ -537,9 +570,22 @@ io.on('connection', (socket) => {
   });
 });
 
+// Limpar salas inativas periodicamente (a cada 30 minutos)
+setInterval(() => {
+  const now = new Date();
+  for (const roomId in rooms) {
+    const room = rooms[roomId];
+    // Remover salas inativas por mais de 1 hora
+    if (room.players.length === 0 && (now - new Date(room.createdAt)) > 60 * 60 * 1000) {
+      delete rooms[roomId];
+      console.log(`Sala ${roomId} removida durante limpeza de rotina`);
+    }
+  }
+}, 30 * 60 * 1000);
+
 // Pega a porta dos argumentos da linha de comando ou usa valores padrão
-const portArg = process.argv[2];
-const PORT = portArg || process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
+  console.log(`Acesse o jogo em: http://localhost:${PORT}`);
 });
