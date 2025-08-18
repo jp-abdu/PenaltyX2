@@ -907,6 +907,80 @@ button:hover {
     text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
 }
 
+/* Mensagens de Gol e Defesa */
+.goal-message-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s;
+}
+
+.goal-message-container.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.goal-message {
+    font-size: 8rem;
+    font-weight: 900;
+    text-align: center;
+    text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.5);
+    padding: 20px;
+    border-radius: 15px;
+    animation: goalMessageAnimation 1s ease-out;
+    transform: scale(0);
+}
+
+.goal-message.show {
+    transform: scale(1);
+}
+
+.goal-message.goal {
+    color: #ff0000;
+    background-color: rgba(255, 255, 0, 0.7);
+}
+
+.goal-message.save {
+    color: #0000ff;
+    background-color: rgba(255, 255, 255, 0.7);
+}
+
+@keyframes goalMessageAnimation {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes pulseAnimation {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
 /* Ajustes Finais */
 #game-container h1 {
     margin-top: 0;
